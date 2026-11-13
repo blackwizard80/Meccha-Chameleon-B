@@ -30,6 +30,7 @@ import {
 } from './components/SettingsAndGuideModals';
 import { MAP_CATALOG } from './engine/maps/MapBuilder';
 import { ConnectionStatus, lanClient } from './network/LanClient';
+import { ensureLanServer } from './network/LanServerRuntime';
 import {
   loadProfile,
   loadSettings,
@@ -72,13 +73,9 @@ export default function App() {
     saveProfile(appearance);
   }, [appearance]);
 
-  // Fetch local LAN IP for display & set global LanClient callbacks
+  // Set global LAN client callbacks. The native LAN server starts only when
+  // the player opens the multiplayer screen.
   useEffect(() => {
-    lanClient
-      .fetchLanInfo()
-      .then((info) => setLocalIps(info.localIps))
-      .catch(() => {});
-
     lanClient.setCallbacks({
       onStatusChange: (status, err) => {
         setConnectionStatus(status);
@@ -251,10 +248,22 @@ export default function App() {
               </button>
 
               <button
-                onClick={() => {
+                onClick={async () => {
                   soundEngine.playButton();
                   requestLandscapeFullscreen();
+                  setLanError(null);
                   setScreen('multiplayer');
+                  try {
+                    await ensureLanServer();
+                    const info = await lanClient.fetchLanInfo();
+                    setLocalIps(info.localIps);
+                  } catch (error) {
+                    setLanError(
+                      error instanceof Error
+                        ? error.message
+                        : 'Unable to start the offline LAN service.',
+                    );
+                  }
                 }}
                 className="w-full py-3.5 px-5 rounded-2xl bg-sky-500 hover:bg-sky-400 text-slate-950 font-display font-extrabold text-base flex items-center justify-between shadow-lg transition-transform active:scale-[0.99]"
               >
