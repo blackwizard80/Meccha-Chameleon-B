@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import {
   AnimationState,
   ClientMessage,
@@ -52,7 +53,9 @@ export class LanClient {
   }
 
   public async fetchLanInfo(hostBaseUrl = ''): Promise<LanInfoResponse> {
-    const url = hostBaseUrl ? `${hostBaseUrl}/api/lan-info` : '/api/lan-info';
+    const baseUrl =
+      hostBaseUrl || (Capacitor.isNativePlatform() ? 'http://127.0.0.1:3000' : '');
+    const url = baseUrl ? `${baseUrl}/api/lan-info` : '/api/lan-info';
     const res = await fetch(url);
     if (!res.ok) throw new Error('Unable to reach LAN server');
     return res.json();
@@ -63,7 +66,9 @@ export class LanClient {
       this.disconnect();
       const targetUrl =
         wsUrl ||
-        `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.host}`;
+        (Capacitor.isNativePlatform()
+          ? 'ws://127.0.0.1:3000'
+          : `${window.location.protocol === "https:" ? "wss:" : "ws:"}//${window.location.host}`);
       this.lastUrl = targetUrl;
       this.setStatus('connecting');
 
