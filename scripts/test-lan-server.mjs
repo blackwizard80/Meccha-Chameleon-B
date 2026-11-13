@@ -62,14 +62,17 @@ try {
     throw new Error('LAN info endpoint returned an invalid response');
   }
 
-  const url = `ws://127.0.0.1:${port}`;
-  host = await connect(url);
+  const lanIp = info.localIps.find((ip) => ip !== '127.0.0.1');
+  const hostUrl = `ws://127.0.0.1:${port}`;
+  const guestUrl = lanIp ? `ws://${lanIp}:${port}` : hostUrl;
+
+  host = await connect(hostUrl);
   const hostWelcomePromise = waitForMessage(host, (m) => m.type === 'welcome');
   host.send(JSON.stringify({ type: 'create_room', playerName: 'Host', settings: {} }));
   const hostWelcome = await hostWelcomePromise;
   if (!hostWelcome.room?.roomId) throw new Error('Host room was not created');
 
-  guest = await connect(url);
+  guest = await connect(guestUrl);
   const guestWelcomePromise = waitForMessage(guest, (m) => m.type === 'welcome');
   const hostUpdatePromise = waitForMessage(
     host,
