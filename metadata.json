@@ -1,0 +1,6 @@
+{
+  "name": "Meccha Chameleon",
+  "description": "3D Painting Camouflage Hide-and-Seek LAN Multiplayer Party Game",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
