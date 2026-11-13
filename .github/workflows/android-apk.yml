@@ -17,14 +17,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-          cache: npm
       - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
       - name: Install dependencies
-        run: npm install
+        run: npm install --no-audit --no-fund
       - name: Build web app
         run: npm run build
       - name: Add Android platform
