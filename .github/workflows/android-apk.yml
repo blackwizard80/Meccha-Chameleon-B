@@ -26,12 +26,14 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Build web app
         run: npm run build
+      - name: Test offline LAN server
+        run: npm run test:lan-server
       - name: Add Android platform
         run: npx cap add android
       - name: Sync Android project
         run: npx cap sync android
-      - name: Enable Android cleartext LAN connections
-        run: sed -i 's/<application /<application android:usesCleartextTraffic="true" /' android/app/src/main/AndroidManifest.xml
+      - name: Configure Android LAN networking
+        run: node scripts/patch-android-manifest.mjs
       - name: Build debug APK
         working-directory: android
         run: ./gradlew assembleDebug --no-daemon
