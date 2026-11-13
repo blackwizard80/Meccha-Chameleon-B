@@ -1,0 +1,8 @@
+{
+  "appId": "com.blackwizard.mecchachameleon",
+  "appName": "Meccha Chameleon",
+  "webDir": "dist",
+  "android": {
+    "allowMixedContent": true
+  }
+}
