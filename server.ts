@@ -3,7 +3,6 @@ import express from 'express';
 import http from 'http';
 import os from 'os';
 import path from 'path';
-import { createServer as createViteServer } from 'vite';
 import { WebSocket, WebSocketServer } from 'ws';
 import type {
   ClientMessage,
@@ -886,28 +885,33 @@ async function startServer() {
     ws.on('close', handleDisconnect);
   });
 
-  if (process.env.NODE_ENV !== 'production') {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: 'spa',
-    });
-    app.use(vite.middlewares);
-  } else {
-    const distPath = path.resolve(process.cwd(), 'dist');
-    app.use(
-      express.static(distPath, {
-        setHeaders: (res, filePath) => {
-          if (filePath.endsWith('manifest.json')) {
-            res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
-          } else if (filePath.endsWith('sw.js')) {
-            res.setHeader('Cache-Control', 'no-cache');
-          }
-        },
-      }),
-    );
-    app.get('*', (_req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
-    });
+  // In the Android app, Capacitor serves the UI and this embedded process
+  // provides only the local HTTP/WebSocket LAN service.
+  if (process.env.MOBILE_LAN_SERVER !== '1') {
+    if (process.env.NODE_ENV !== 'production') {
+      const { createServer: createViteServer } = await import('vite');
+      const vite = await createViteServer({
+        server: { middlewareMode: true },
+        appType: 'spa',
+      });
+      app.use(vite.middlewares);
+    } else {
+      const distPath = path.resolve(process.cwd(), 'dist');
+      app.use(
+        express.static(distPath, {
+          setHeaders: (res, filePath) => {
+            if (filePath.endsWith('manifest.json')) {
+              res.setHeader('Content-Type', 'application/manifest+json; charset=utf-8');
+            } else if (filePath.endsWith('sw.js')) {
+              res.setHeader('Cache-Control', 'no-cache');
+            }
+          },
+        }),
+      );
+      app.get('*', (_req, res) => {
+        res.sendFile(path.join(distPath, 'index.html'));
+      });
+    }
   }
 
   httpServer.listen(PORT, '0.0.0.0', () => {
