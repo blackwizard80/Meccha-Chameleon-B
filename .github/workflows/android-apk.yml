@@ -7,7 +7,7 @@ on:
 
 permissions:
   contents: read
- njobs:
+jobs:
   build-apk:
     runs-on: ubuntu-latest
     steps:
