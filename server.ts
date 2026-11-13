@@ -25,15 +25,34 @@ const LAN_DISCOVERY_PORT = 41234;
 
 function getLocalIPv4Addresses(): string[] {
   const nets = os.networkInterfaces();
-  const ips: string[] = [];
-  for (const name of Object.keys(nets)) {
-    for (const net of nets[name] || []) {
-      if (net.family === 'IPv4' && !net.internal) {
-        ips.push(net.address);
-      }
+  const candidates: Array<{ address: string; score: number }> = [];
+
+  for (const [name, entries] of Object.entries(nets)) {
+    for (const net of entries || []) {
+      if (net.family !== 'IPv4' || net.internal) continue;
+
+      const address = net.address;
+      const octets = address.split('.').map(Number);
+      const isPrivate =
+        octets[0] === 10 ||
+        (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
+        (octets[0] === 192 && octets[1] === 168) ||
+        (octets[0] === 169 && octets[1] === 254);
+      const isWifiInterface = /(wlan|wifi|ap|swlan|p2p)/i.test(name);
+
+      // Prefer Android Wi-Fi / hotspot interfaces and private LAN addresses.
+      // Keep other non-loopback addresses as fallbacks for unusual devices.
+      candidates.push({
+        address,
+        score: (isWifiInterface ? 4 : 0) + (isPrivate ? 2 : 0),
+      });
     }
   }
-  return ips.length > 0 ? ips : ['127.0.0.1'];
+
+  candidates.sort((a, b) => b.score - a.score);
+  return [...new Set(candidates.map((item) => item.address))].length
+    ? [...new Set(candidates.map((item) => item.address))]
+    : ['127.0.0.1'];
 }
 
 function makeId(prefix = ''): string {
