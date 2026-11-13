@@ -711,7 +711,11 @@ async function startServer() {
           break;
 
         case 'seeker_action':
-          if (player.team === 'seeker') {
+          if (
+            player.team === 'seeker' &&
+            msg.event.action !== 'shoot' &&
+            msg.event.action !== 'reload'
+          ) {
             broadcastRoom(
               room,
               {
@@ -756,6 +760,8 @@ async function startServer() {
         }
 
         case 'attempt_capture': {
+          // Keep LAN play focused on non-ranged, close-range game interactions.
+          if (msg.weaponHit) break;
           if (room.state.phase !== 'seeking') break;
           if (player.team !== 'seeker' || player.found) break;
 
