@@ -4,5 +4,11 @@
   "webDir": "dist",
   "android": {
     "allowMixedContent": true
+  },
+  "plugins": {
+    "Nodejs": {
+      "nodeDir": "nodejs",
+      "startMode": "manual"
+    }
   }
 }
