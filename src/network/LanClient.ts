@@ -81,7 +81,7 @@ export class LanClient {
           this.setStatus('error', 'Connection timed out');
           reject(new Error('Connection timed out'));
         }
-      }, 6000);
+      }, 12000);
 
       ws.onopen = () => {
         clearTimeout(timeout);
@@ -195,15 +195,13 @@ export class LanClient {
     roomId?: string,
   ): Promise<void> {
     let wsUrl: string | undefined;
-    const trimmed = hostAddress.trim();
+    let trimmed = hostAddress.trim().replace(/\\/$/, '');
     if (trimmed) {
-      if (trimmed.startsWith('ws://') || trimmed.startsWith('wss://')) {
-        wsUrl = trimmed;
-      } else if (trimmed.includes(':')) {
-        wsUrl = `ws://${trimmed}`;
-      } else {
-        wsUrl = `ws://${trimmed}:3000`;
-      }
+      // Accept a bare IP, IP:port, or an http(s)/ws(s) URL pasted by the user.
+      trimmed = trimmed.replace(/^https?:\\/\\//i, '').replace(/^wss?:\\/\\//i, '');
+      if (trimmed.includes('/')) trimmed = trimmed.split('/')[0];
+      const hostPort = trimmed.includes(':') ? trimmed : `${trimmed}:3000`;
+      wsUrl = `ws://${hostPort}`;
     }
     await this.connect(wsUrl);
     this.send({
