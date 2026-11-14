@@ -57,6 +57,43 @@ function getLocalIPv4Addresses(): string[] {
   return unique.length ? unique : ['127.0.0.1'];
 }
 
+function getLanBroadcastAddresses(): string[] {
+  const nets = os.networkInterfaces();
+  const wifiTargets: string[] = [];
+  const privateTargets: string[] = [];
+
+  for (const [name, entries] of Object.entries(nets)) {
+    const iface = name.toLowerCase();
+    // Prefer Wi-Fi and hotspot interfaces; avoid Wi-Fi Direct and loopback.
+    if (iface.includes('p2p')) continue;
+    for (const net of entries || []) {
+      if (net.family !== 'IPv4' || net.internal || !net.netmask) continue;
+      const ipParts = net.address.split('.').map(Number);
+      const maskParts = net.netmask.split('.').map(Number);
+      if (ipParts.length !== 4 || maskParts.length !== 4) continue;
+      if (ipParts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) continue;
+      if (maskParts.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) continue;
+
+      const ip = ipParts.reduce((value, part) => ((value << 8) | part) >>> 0, 0);
+      const mask = maskParts.reduce((value, part) => ((value << 8) | part) >>> 0, 0);
+      const broadcast = (ip | (~mask >>> 0)) >>> 0;
+      const address = [24, 16, 8, 0]
+        .map((shift) => (broadcast >>> shift) & 255)
+        .join('.');
+      const isPrivate =
+        ipParts[0] === 10 ||
+        (ipParts[0] === 172 && ipParts[1] >= 16 && ipParts[1] <= 31) ||
+        (ipParts[0] === 192 && ipParts[1] === 168);
+      if (isPrivate) privateTargets.push(address);
+      if (/(wlan|wifi|swlan|ap[0-9]*|softap|tether)/i.test(iface) && isPrivate) {
+        wifiTargets.push(address);
+      }
+    }
+  }
+
+  return [...new Set([...wifiTargets, ...privateTargets, '255.255.255.255'])];
+}
+
 function makeId(prefix = ''): string {
   return `${prefix}${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 }
@@ -460,10 +497,17 @@ async function startServer() {
           phase: st.phase,
         },
       });
-      try {
-        udpSocket.send(packet, LAN_DISCOVERY_PORT, '255.255.255.255');
-      } catch {
-        // Ignore broadcast errors in offline/restricted interfaces
+      // Send to each interface's subnet broadcast address as well as the
+      // limited broadcast address. Some Android hotspot/Wi-Fi stacks drop
+      // 255.255.255.255 but accept the subnet-directed broadcast.
+      for (const target of getLanBroadcastAddresses()) {
+        try {
+          udpSocket.send(packet, LAN_DISCOVERY_PORT, target, () => {
+            // Broadcast can be blocked by some Android/OEM network policies.
+          });
+        } catch {
+          // Ignore broadcast errors in offline/restricted interfaces.
+        }
       }
     }
   }, 1500);
