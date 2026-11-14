@@ -195,10 +195,14 @@ export class LanClient {
     roomId?: string,
   ): Promise<void> {
     let wsUrl: string | undefined;
-    let trimmed = hostAddress.trim().replace(/\\/$/, '');
+    let trimmed = hostAddress.trim();
     if (trimmed) {
       // Accept a bare IP, IP:port, or an http(s)/ws(s) URL pasted by the user.
-      trimmed = trimmed.replace(/^https?:\\/\\//i, '').replace(/^wss?:\\/\\//i, '');
+      while (trimmed.endsWith('/')) trimmed = trimmed.slice(0, -1);
+      if (trimmed.startsWith('https://')) trimmed = trimmed.slice(8);
+      else if (trimmed.startsWith('http://')) trimmed = trimmed.slice(7);
+      else if (trimmed.startsWith('wss://')) trimmed = trimmed.slice(6);
+      else if (trimmed.startsWith('ws://')) trimmed = trimmed.slice(5);
       if (trimmed.includes('/')) trimmed = trimmed.split('/')[0];
       const hostPort = trimmed.includes(':') ? trimmed : `${trimmed}:3000`;
       wsUrl = `ws://${hostPort}`;
