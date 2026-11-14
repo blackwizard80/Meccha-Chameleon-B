@@ -28,31 +28,33 @@ function getLocalIPv4Addresses(): string[] {
   const candidates: Array<{ address: string; score: number }> = [];
 
   for (const [name, entries] of Object.entries(nets)) {
+    const iface = name.toLowerCase();
+    // Wi-Fi Direct (p2p) is not the phone's mobile-hotspot LAN interface.
+    const isWifiAp = /(wlan|wifi|swlan|ap[0-9]*|softap|tether)/i.test(iface);
     for (const net of entries || []) {
       if (net.family !== 'IPv4' || net.internal) continue;
 
       const address = net.address;
       const octets = address.split('.').map(Number);
+      if (octets.length !== 4 || octets.some((part) => !Number.isInteger(part) || part < 0 || part > 255)) continue;
+      // Ignore link-local addresses: they are not usable for normal hotspot joins.
+      if (octets[0] === 169 && octets[1] === 254) continue;
+
       const isPrivate =
         octets[0] === 10 ||
         (octets[0] === 172 && octets[1] >= 16 && octets[1] <= 31) ||
-        (octets[0] === 192 && octets[1] === 168) ||
-        (octets[0] === 169 && octets[1] === 254);
-      const isWifiInterface = /(wlan|wifi|ap|swlan|p2p)/i.test(name);
-
-      // Prefer Android Wi-Fi / hotspot interfaces and private LAN addresses.
-      // Keep other non-loopback addresses as fallbacks for unusual devices.
+        (octets[0] === 192 && octets[1] === 168);
       candidates.push({
         address,
-        score: (isWifiInterface ? 4 : 0) + (isPrivate ? 2 : 0),
+        // Prefer real Wi-Fi / hotspot interfaces over mobile-data and VPN adapters.
+        score: (isWifiAp ? 100 : 0) + (isPrivate ? 10 : 0),
       });
     }
   }
 
   candidates.sort((a, b) => b.score - a.score);
-  return [...new Set(candidates.map((item) => item.address))].length
-    ? [...new Set(candidates.map((item) => item.address))]
-    : ['127.0.0.1'];
+  const unique = [...new Set(candidates.map((item) => item.address))];
+  return unique.length ? unique : ['127.0.0.1'];
 }
 
 function makeId(prefix = ''): string {
@@ -465,6 +467,11 @@ async function startServer() {
       }
     }
   }, 1500);
+
+  // Lightweight endpoint for checking that the embedded LAN service is reachable.
+  app.get('/api/health', (_req, res) => {
+    res.json({ ok: true, service: 'meccha-chameleon-lan', port: PORT });
+  });
 
   // REST API for LAN Discovery & Local IP Address Info
   app.get('/api/lan-info', (_req, res) => {
