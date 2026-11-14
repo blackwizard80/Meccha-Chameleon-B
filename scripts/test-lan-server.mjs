@@ -61,6 +61,11 @@ try {
   if (!Array.isArray(info.localIps) || info.port !== port) {
     throw new Error('LAN info endpoint returned an invalid response');
   }
+  const health = await fetch(`http://127.0.0.1:${port}/api/health`);
+  const healthInfo = await health.json();
+  if (!health.ok || healthInfo.ok !== true || healthInfo.port !== port) {
+    throw new Error('LAN health endpoint failed');
+  }
 
   const lanIp = info.localIps.find((ip) => ip !== '127.0.0.1');
   const hostUrl = `ws://127.0.0.1:${port}`;
